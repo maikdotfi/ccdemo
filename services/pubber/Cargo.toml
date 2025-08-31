@@ -1,0 +1,31 @@
+[package]
+name = "pubber"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
+common = { path = "../../crates/common" }
+bytes = { version = "1", optional = true }
+futures = { version = "0.3", optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"], optional = true }
+
+# Optional GCP pubsub dependency (not enabled by default). Uncomment and enable feature later.
+# [dependencies.google-cloud-pubsub]
+# version = "0.19"
+# optional = true
+
+[dependencies.google-cloud-pubsub]
+version = "0.19"
+optional = true
+
+[dependencies.google-cloud-googleapis]
+version = "0.11"
+optional = true
+
+[features]
+default = ["mock"]
+mock = []
+gcp = ["google-cloud-pubsub", "google-cloud-googleapis", "tokio", "bytes", "futures"]

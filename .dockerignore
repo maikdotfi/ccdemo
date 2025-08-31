@@ -1,0 +1,12 @@
+target
+.git
+.github
+**/*.swp
+**/*.swo
+.DS_Store
+node_modules
+operator-system
+samples
+*.log
+*.tmp
+tmp/

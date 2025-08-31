@@ -1,0 +1,23 @@
+[package]
+name = "subber"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
+common = { path = "../../crates/common" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+tokio-postgres = { version = "0.7", features = ["with-uuid-1", "runtime"], default-features = false }
+futures = "0.3"
+bytes = { version = "1", optional = true }
+
+[dependencies.google-cloud-pubsub]
+version = "0.19"
+optional = true
+
+[features]
+default = ["mock"]
+mock = []
+gcp = ["google-cloud-pubsub", "bytes"]

@@ -1,7 +1,8 @@
-[package]
-name = "ccdemo"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-
+[workspace]
+members = [
+  "crates/common",
+  "services/pubber",
+  "services/subber",
+  "services/webui",
+]
+resolver = "2"

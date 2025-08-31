@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ccdemo
+  annotations:
+    # Set the default GCP project for Config Connector resources in this namespace
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+

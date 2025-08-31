@@ -1,0 +1,20 @@
+apiVersion: sql.cnrm.cloud.google.com/v1beta1
+kind: SQLInstance
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  name: ccdemo-postgres
+spec:
+  region: europe-north1
+  databaseVersion: POSTGRES_15
+  settings:
+    #tier: db-f1-micro
+    tier: db-g1-small
+    availabilityType: ZONAL
+    diskType: PD_SSD
+    diskSize: 10
+    ipConfiguration:
+      ipv4Enabled: true
+      requireSsl: true

@@ -1,0 +1,173 @@
+# gcp-resources.yaml
+apiVersion: pubsub.cnrm.cloud.google.com/v1beta1
+kind: PubSubTopic
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  name: my-topic
+---
+apiVersion: pubsub.cnrm.cloud.google.com/v1beta1
+kind: PubSubSubscription
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  name: my-subscription
+spec:
+  topicRef:
+    name: my-topic
+  enableMessageOrdering: true
+---
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMServiceAccount
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  name: publisher-sa
+spec:
+  displayName: "Publisher Service Account"
+---
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMServiceAccount
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  name: subscriber-sa
+spec:
+  displayName: "Subscriber Service Account"
+---
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  name: pubsub-publisher-iam-policy
+spec:
+  member: "serviceAccount:publisher-sa@GCP_PROJECT_ID.iam.gserviceaccount.com"
+  role: "roles/pubsub.publisher"
+  resourceRef:
+    apiVersion: pubsub.cnrm.cloud.google.com/v1beta1
+    kind: PubSubTopic
+    name: my-topic
+---
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  name: pubsub-subscriber-iam-policy
+spec:
+  member: "serviceAccount:subscriber-sa@GCP_PROJECT_ID.iam.gserviceaccount.com"
+  role: "roles/pubsub.subscriber"
+  resourceRef:
+    apiVersion: pubsub.cnrm.cloud.google.com/v1beta1
+    kind: PubSubSubscription
+    name: my-subscription
+---
+apiVersion: sql.cnrm.cloud.google.com/v1beta1
+kind: SQLDatabase
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  name: wordsdb
+spec:
+  charset: UTF8
+  instanceRef:
+    name: ccdemo-postgres
+---
+apiVersion: sql.cnrm.cloud.google.com/v1beta1
+kind: SQLUser
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  name: appuser
+spec:
+  instanceRef:
+    name: ccdemo-postgres
+  type: BUILT_IN
+  password:
+    valueFrom:
+      secretKeyRef:
+        name: subber-db-credentials
+        key: password
+---
+# Allow subber GSA to use Cloud SQL Auth Proxy
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  name: subber-cloudsql-client
+spec:
+  member: "serviceAccount:subscriber-sa@GCP_PROJECT_ID.iam.gserviceaccount.com"
+  role: "roles/cloudsql.client"
+  resourceRef:
+    apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
+    kind: Project
+    external: GCP_PROJECT_ID
+---
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  name: subber-cloudsql-instance-user
+spec:
+  member: "serviceAccount:subscriber-sa@GCP_PROJECT_ID.iam.gserviceaccount.com"
+  role: "roles/cloudsql.instanceUser"
+  resourceRef:
+    apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
+    kind: Project
+    external: GCP_PROJECT_ID
+---
+# Workload Identity binding: map KSA to GSA
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  name: subber-workload-identity
+spec:
+  member: "serviceAccount:GCP_PROJECT_ID.svc.id.goog[ccdemo/subscriber-ksa]"
+  role: "roles/iam.workloadIdentityUser"
+  resourceRef:
+    apiVersion: iam.cnrm.cloud.google.com/v1beta1
+    kind: IAMServiceAccount
+    name: subscriber-sa
+---
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  annotations:
+    cnrm.cloud.google.com/project-id: GCP_PROJECT_ID
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  name: pubber-workload-identity
+spec:
+  member: "serviceAccount:GCP_PROJECT_ID.svc.id.goog[ccdemo/publisher-ksa]"
+  role: "roles/iam.workloadIdentityUser"
+  resourceRef:
+    apiVersion: iam.cnrm.cloud.google.com/v1beta1
+    kind: IAMServiceAccount
+    name: publisher-sa

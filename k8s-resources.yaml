@@ -1,0 +1,210 @@
+# k8s-resources.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: publisher-ksa
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  annotations:
+    iam.gke.io/gcp-service-account: publisher-sa@GCP_PROJECT_ID.iam.gserviceaccount.com
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: subscriber-ksa
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+  annotations:
+    iam.gke.io/gcp-service-account: subscriber-sa@GCP_PROJECT_ID.iam.gserviceaccount.com
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: publisher
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: publisher
+  template:
+    metadata:
+      labels:
+        app: publisher
+    spec:
+      serviceAccountName: publisher-ksa
+      volumes:
+      - name: pubber-config
+        configMap:
+          name: pubber-config
+      containers:
+      - name: publisher
+        image: ghcr.io/maikdotfi/ccdemo/pubber:6651eeae4aa791a884e47336190cc9984d867cfd
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: pubber-config
+          mountPath: /config
+          readOnly: true
+        env:
+        - name: "INPUT_FILE"
+          value: "/config/rick.txt"
+        - name: "PROJECT_ID"
+          value: "GCP_PROJECT_ID"
+        - name: "TOPIC_ID"
+          value: "my-topic"
+        - name: "PUBLISH_DELAY_MS"
+          value: "200"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: subscriber
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: subscriber
+  template:
+    metadata:
+      labels:
+        app: subscriber
+    spec:
+      serviceAccountName: subscriber-ksa
+      containers:
+      - name: subscriber
+        image: ghcr.io/maikdotfi/ccdemo/subber:6651eeae4aa791a884e47336190cc9984d867cfd
+        imagePullPolicy: Always
+        env:
+        - name: "PROJECT_ID"
+          value: "GCP_PROJECT_ID"
+        - name: "SUBSCRIPTION_ID"
+          value: "my-subscription"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: subber-db-credentials
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: subber-db-credentials
+              key: password
+        - name: DB_HOST
+          value: "127.0.0.1"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "wordsdb"
+        - name: DATABASE_URL
+          value: "postgres://127.0.0.1:5432/wordsdb"
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+        args:
+          - "--port=5432"
+          - "GCP_PROJECT_ID:europe-north1:ccdemo-postgres"
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webui
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+spec:
+  selector:
+    app: webui
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webui
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webui
+  template:
+    metadata:
+      labels:
+        app: webui
+    spec:
+      # Reuse subscriber KSA for Cloud SQL access via WI
+      serviceAccountName: subscriber-ksa
+      containers:
+      - name: webui
+        image: ghcr.io/maikdotfi/ccdemo/webui:latest
+        imagePullPolicy: Always
+        env:
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: subber-db-credentials
+              key: username
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: subber-db-credentials
+              key: password
+        - name: DB_HOST
+          value: "127.0.0.1"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "wordsdb"
+        - name: DATABASE_URL
+          value: "postgres://127.0.0.1:5432/wordsdb"
+        - name: PORT
+          value: "8080"
+        ports:
+        - name: http
+          containerPort: 8080
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.3
+        args:
+          - "--port=5432"
+          - "GCP_PROJECT_ID:europe-north1:ccdemo-postgres"
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pubber-config
+  labels:
+    app.kubernetes.io/part-of: ccdemo
+data:
+  rick.txt: |-
+    I just wanna tell you how I'm feeling
+    Gotta make you understand
+    Never gonna give you up, never gonna let you down
+    Never gonna run around and desert you
+    Never gonna make you cry, never gonna say goodbye
+    Never gonna tell a lie and hurt you
+    We've known each other for so long
+    Your heart's been aching, but you're too shy to say it
+    Inside, we both know what's been going on
+    We know the game and we're gonna play it
+    And if you ask me how I'm feeling
+    Don't tell me you're too blind to see
+    Never gonna give you up, never gonna let you down
+    Never gonna run around and desert you
+    Never gonna make you cry, never gonna say goodbye
+    Never gonna tell a lie and hurt you
+    /end
+    F f f f f freestyler raka makafon
+    Straight from the top of my dome
+    F f f f f freestyler raka makafon
+    C c c carry on with the freestyler
+    /the end
